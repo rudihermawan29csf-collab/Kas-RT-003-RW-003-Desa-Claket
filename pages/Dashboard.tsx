@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Loan, LoanStatus, CashTransaction, formatCurrency } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, Users, AlertCircle, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, X, Link2, FileText, Coins, PieChart } from 'lucide-react';
+import { TrendingUp, Users, AlertCircle, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, X, Link2, FileText, Coins, PieChart, ChevronDown, ChevronRight, Briefcase } from 'lucide-react';
 
 interface DashboardProps {
   loans: Loan[];
@@ -10,6 +10,18 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions }) => {
   const [detailView, setDetailView] = useState<'INCOME' | 'EXPENSE' | null>(null);
+  // State untuk melacak accordion mana yang terbuka. Format ID: "TAHUN-TIPE" (misal: "2023-MANUAL")
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  const toggleSection = (id: string) => {
+    const newSet = new Set(expandedSections);
+    if (newSet.has(id)) {
+        newSet.delete(id);
+    } else {
+        newSet.add(id);
+    }
+    setExpandedSections(newSet);
+  };
 
   // --- CASH FLOW CALCULATIONS ---
 
@@ -71,10 +83,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
 
   // --- MODAL DATA PREPARATION ---
   // Filter list transaksi untuk tabel detail
-  const detailTransactions = detailView === 'INCOME' 
+  const rawDetailTransactions = detailView === 'INCOME' 
      ? cashTransactions.filter(t => t.type === 'INCOME' || t.category === 'INITIAL_BALANCE')
      : expenseTransactions;
   
+  // Group by Year for Display
+  const years = Array.from(new Set(rawDetailTransactions.map(t => t.date.substring(0, 4)))).sort().reverse();
+
   // Custom Tooltip for Chart
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -88,6 +103,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
       );
     }
     return null;
+  };
+
+  // Helper render Rows
+  const renderTransactionRows = (transactions: CashTransaction[]) => {
+      return (
+        <div className="border-t border-gray-100 bg-white">
+            <table className="w-full text-left">
+                <thead className="bg-gray-50/50">
+                    <tr>
+                        <th className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase">Tanggal</th>
+                        <th className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase">Keterangan</th>
+                        <th className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase text-right">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                    {transactions.map(t => {
+                        const isIncome = t.type === 'INCOME';
+                        return (
+                            <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-4 py-2 text-xs text-gray-500 font-mono">{t.date}</td>
+                                <td className="px-4 py-2 text-xs font-medium text-gray-700">{t.description}</td>
+                                <td className={`px-4 py-2 text-xs font-bold text-right font-mono ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatCurrency(t.amount)}
+                                </td>
+                            </tr>
+                        )
+                    })}
+                </tbody>
+            </table>
+        </div>
+      );
   };
 
   return (
@@ -210,12 +256,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
         </div>
       </div>
 
-      {/* DETAIL MODAL */}
+      {/* DETAIL MODAL (ACCORDION STYLE) */}
       {detailView && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDetailView(null)} />
-             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-3xl relative z-10 animate-in fade-in zoom-in-95 flex flex-col max-h-[85vh]">
-                <div className="flex justify-between items-center mb-6">
+             <div className="bg-white rounded-2xl shadow-2xl p-0 w-full max-w-3xl relative z-10 animate-in fade-in zoom-in-95 flex flex-col max-h-[85vh]">
+                <div className="flex justify-between items-center p-6 border-b border-gray-100">
                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                         {detailView === 'INCOME' ? 
                             <><ArrowUpCircle className="text-green-600" /> Analisa Pemasukan</> : 
@@ -227,84 +273,103 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                     </button>
                 </div>
                 
-                {/* Scrollable Table */}
-                <div className="overflow-y-auto flex-1">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Kategori</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tanggal</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Keterangan</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Jumlah</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {detailTransactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(t => {
-                                const isLoan = t.category.includes('LOAN');
-                                const isInitial = t.category === 'INITIAL_BALANCE';
-                                const isIncome = t.type === 'INCOME';
+                {/* Content Area */}
+                <div className="overflow-y-auto flex-1 p-6 bg-gray-50/50 space-y-6">
+                    {years.map(year => {
+                        // Filter transactions for this year
+                        const yearTransactions = rawDetailTransactions
+                            .filter(t => t.date.startsWith(year))
+                            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                        
+                        if (yearTransactions.length === 0) return null;
 
-                                // Row Styling
-                                let rowClass = 'bg-white';
-                                let textClass = 'text-gray-800';
-                                let amountClass = isIncome ? 'text-green-700' : 'text-red-700';
-                                let icon = <FileText size={12}/>;
-                                let label = 'Transaksi';
+                        // SPLIT DATA
+                        const manualTransactions = yearTransactions.filter(t => t.category === 'MANUAL' || t.category === 'INITIAL_BALANCE');
+                        const systemTransactions = yearTransactions.filter(t => t.category.includes('LOAN'));
 
-                                if (isInitial) {
-                                    rowClass = 'bg-purple-50';
-                                    amountClass = 'text-purple-700';
-                                    icon = <Wallet size={12}/>;
-                                    label = 'Modal Awal';
-                                } else if (isIncome) {
-                                    if (isLoan) {
-                                        rowClass = 'bg-blue-50';
-                                        amountClass = 'text-blue-700';
-                                        icon = <Link2 size={12}/>;
-                                        label = 'Pelunasan';
-                                    } else {
-                                        rowClass = 'bg-green-50';
-                                        amountClass = 'text-green-700';
-                                        icon = <Coins size={12}/>;
-                                        label = 'Kas Manual';
-                                    }
-                                } else {
-                                    // Expense
-                                    if (isLoan) {
-                                        rowClass = 'bg-orange-50';
-                                        amountClass = 'text-orange-700';
-                                        icon = <Link2 size={12}/>;
-                                        label = 'Pencairan';
-                                    } else {
-                                        rowClass = 'bg-red-50';
-                                        amountClass = 'text-red-700';
-                                        icon = <FileText size={12}/>;
-                                        label = 'Kas Manual';
-                                    }
-                                }
-                                
-                                return (
-                                    <tr key={t.id} className={`${rowClass} transition-colors`}>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-white/60 border-white/50 ${amountClass}`}>
-                                                {icon} {label}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{t.date}</td>
-                                        <td className={`px-4 py-3 text-sm font-medium ${textClass}`}>{t.description}</td>
-                                        <td className={`px-4 py-3 text-sm font-bold text-right font-mono ${amountClass}`}>
-                                            {formatCurrency(t.amount)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                        const manualTotal = manualTransactions.reduce((acc, t) => acc + t.amount, 0);
+                        const systemTotal = systemTransactions.reduce((acc, t) => acc + t.amount, 0);
+                        const yearTotal = manualTotal + systemTotal;
+
+                        // Accordion Keys
+                        const manualKey = `${year}-MANUAL`;
+                        const systemKey = `${year}-SYSTEM`;
+
+                        return (
+                            <div key={year} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                                {/* YEAR HEADER */}
+                                <div className="bg-gray-100/80 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                                    <h4 className="font-bold text-gray-700">Tahun {year}</h4>
+                                    <span className={`text-xs font-bold px-2 py-1 rounded border ${detailView === 'INCOME' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+                                        Total: {formatCurrency(yearTotal)}
+                                    </span>
+                                </div>
+
+                                <div className="p-2 space-y-2">
+                                    {/* ACCORDION 1: MANUAL */}
+                                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                        <button 
+                                            onClick={() => toggleSection(manualKey)}
+                                            className="w-full flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors text-left"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {expandedSections.has(manualKey) ? <ChevronDown size={16} className="text-gray-400"/> : <ChevronRight size={16} className="text-gray-400"/>}
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`p-1.5 rounded-full ${detailView === 'INCOME' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                                        {detailView === 'INCOME' ? <Coins size={14}/> : <Briefcase size={14}/>}
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-gray-700">
+                                                        {detailView === 'INCOME' ? 'Kas Manual & Modal' : 'Operasional / Manual'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <span className="text-sm font-mono font-medium text-gray-600">{formatCurrency(manualTotal)}</span>
+                                        </button>
+                                        
+                                        {/* Rows */}
+                                        {expandedSections.has(manualKey) && (
+                                            manualTransactions.length > 0 ? renderTransactionRows(manualTransactions) : (
+                                                <div className="p-3 text-xs text-center text-gray-400 bg-gray-50">Tidak ada transaksi</div>
+                                            )
+                                        )}
+                                    </div>
+
+                                    {/* ACCORDION 2: SYSTEM */}
+                                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                        <button 
+                                            onClick={() => toggleSection(systemKey)}
+                                            className="w-full flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors text-left"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {expandedSections.has(systemKey) ? <ChevronDown size={16} className="text-gray-400"/> : <ChevronRight size={16} className="text-gray-400"/>}
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`p-1.5 rounded-full ${detailView === 'INCOME' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                        <Link2 size={14}/>
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-gray-700">
+                                                        {detailView === 'INCOME' ? 'Sistem: Pelunasan Pinjaman' : 'Sistem: Pencairan Pinjaman'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <span className="text-sm font-mono font-medium text-gray-600">{formatCurrency(systemTotal)}</span>
+                                        </button>
+                                        
+                                        {/* Rows */}
+                                        {expandedSections.has(systemKey) && (
+                                            systemTransactions.length > 0 ? renderTransactionRows(systemTransactions) : (
+                                                <div className="p-3 text-xs text-center text-gray-400 bg-gray-50">Tidak ada transaksi</div>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* Footer with Breakdown */}
                 {detailView === 'INCOME' && (
-                  <div className="pt-4 border-t border-gray-200 mt-2 bg-gray-50/50 -mx-6 px-6 -mb-6 pb-6 rounded-b-2xl">
+                  <div className="bg-white p-6 rounded-b-2xl border-t border-gray-200 shadow-md relative z-10">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
                           <div className="p-2 bg-purple-100 rounded-lg border border-purple-200">
                                <div className="text-purple-700 font-bold mb-1">Modal Awal</div>
@@ -324,21 +389,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                           </div>
                       </div>
 
-                      <div className="flex justify-between items-center px-4 pt-2 border-t border-gray-200 bg-green-50 rounded-lg p-2 mt-2 border border-green-200">
+                      <div className="flex justify-between items-center bg-green-50 rounded-lg p-3 mt-4 border border-green-200 shadow-sm">
                           <span className="text-sm font-bold text-green-800 uppercase tracking-wide">Total Pemasukan (Rumus)</span>
                           <span className="text-2xl font-bold text-green-700">
                               {formatCurrency(totalPemasukanDisplay)}
                           </span>
                       </div>
-                      <div className="text-center mt-1">
+                      <div className="text-center mt-2">
                         <span className="text-[10px] text-gray-400">Total Pemasukan = Modal Awal + Kas Manual + Bunga (Tidak termasuk Pokok Kembali)</span>
                       </div>
                   </div>
                 )}
 
                 {detailView === 'EXPENSE' && (
-                   <div className="pt-4 border-t border-gray-200 mt-2 bg-gray-50/50 -mx-6 px-6 -mb-6 pb-6 rounded-b-2xl">
-                      <div className="flex justify-between items-center px-4 pt-2">
+                   <div className="bg-white p-6 rounded-b-2xl border-t border-gray-200 shadow-md relative z-10">
+                      <div className="flex justify-between items-center">
                           <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">Total Pengeluaran</span>
                           <span className="text-2xl font-bold text-red-600">
                               {formatCurrency(totalExpense)}
