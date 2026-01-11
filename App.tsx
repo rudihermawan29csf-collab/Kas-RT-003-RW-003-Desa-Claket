@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { INITIAL_LOANS, Loan, LoanStatus, User } from './types';
+import React, { useState, useEffect } from 'react';
+import { INITIAL_LOANS, INITIAL_CASH_TRANSACTIONS, Loan, LoanStatus, User, CashTransaction, calculateTotal } from './types';
 import { MacOSWindow } from './components/MacOSWindow';
 import { Dashboard } from './pages/Dashboard';
 import { LoanList } from './pages/LoanList';
@@ -7,7 +7,12 @@ import { RtValidation } from './pages/RtValidation';
 import { AdminPayment } from './pages/AdminPayment';
 import { LoginScreen } from './components/LoginScreen';
 import { NasabahView } from './pages/NasabahView';
-import { Save, Calendar } from 'lucide-react';
+import { CashFlow } from './pages/CashFlow';
+import { Save, Calendar, RefreshCcw } from 'lucide-react';
+
+// --- CONFIGURATION ---
+// APP SCRIPT URL CONNECTED
+const API_URL = "https://script.google.com/macros/s/AKfycbyirkbuhmVvS7Kbpq5q6H-uRDf_A9rE-ibTx8CXZ1cJjPDIGOI3GpeGz1DwMU7paDlztw/exec";
 
 // Sub-component for Loan Request with Auto-Formatting
 const LoanRequest: React.FC<{ onSubmit: (name: string, amount: number, date: string) => void }> = ({ onSubmit }) => {
@@ -107,23 +112,69 @@ const LoanRequest: React.FC<{ onSubmit: (name: string, amount: number, date: str
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loans, setLoans] = useState<Loan[]>(INITIAL_LOANS);
+  const [cashTransactions, setCashTransactions] = useState<CashTransaction[]>(INITIAL_CASH_TRANSACTIONS);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [loading, setLoading] = useState(false);
 
+  // --- API HANDLER ---
+  const sendToApi = (action: string, payload: any) => {
+    if (!API_URL) return;
+    
+    // We use 'no-cors' mode for simple posting to Google Scripts
+    // This allows data to be sent without complex CORS setup on the server side for POST requests
+    fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload })
+    }).catch(err => console.error("API Error", err));
+  };
+
+  const fetchData = async () => {
+      if (!API_URL) return;
+      setLoading(true);
+      try {
+          const res = await fetch(API_URL);
+          const data = await res.json();
+          // Only update if we get valid arrays back, otherwise keep initial/local state or handle empty
+          if (data.loans && Array.isArray(data.loans)) {
+             setLoans(data.loans);
+          }
+          if (data.cashTransactions && Array.isArray(data.cashTransactions)) {
+             setCashTransactions(data.cashTransactions);
+          }
+      } catch (e) {
+          console.error("Failed to fetch data from Google Sheets", e);
+          // Optional: alert("Gagal mengambil data terbaru dari server.");
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  // Initial Load
+  useEffect(() => {
+      if(API_URL) fetchData();
+  }, []);
+
+
+  // LOAN HANDLERS
   const handleCreateLoan = (name: string, amount: number, date: string) => {
     const newLoan: Loan = {
-      id: (Date.now()).toString(), // Simple ID gen
+      id: (Date.now()).toString(), 
       borrowerName: name,
       amount: amount,
       date: date,
       status: LoanStatus.PENDING
     };
     setLoans([newLoan, ...loans]);
+    sendToApi('CREATE_LOAN', newLoan);
     setCurrentView('loans'); 
   };
 
   const handleDeleteLoan = (id: string) => {
     if (window.confirm("Apakah Anda yakin ingin menghapus data pinjaman ini?")) {
       setLoans(loans.filter(l => l.id !== id));
+      sendToApi('DELETE_LOAN', id);
     }
   };
 
@@ -131,43 +182,122 @@ export default function App() {
      setLoans(loans.map(loan => 
         loan.id === id ? { ...loan, ...updatedData } : loan
      ));
+     sendToApi('UPDATE_LOAN', { id, ...updatedData });
   };
 
-  // Generic status updater that can also set specific date fields based on the action
   const handleUpdateStatus = (id: string, newStatus: LoanStatus, date?: string) => {
-    setLoans(loans.map(loan => {
+    // 1. Update Loan Status
+    let updatedLoanData: Loan | null = null;
+    let updatePayload: any = { id, status: newStatus };
+
+    setLoans(prevLoans => prevLoans.map(loan => {
       if (loan.id !== id) return loan;
 
       const updatedLoan = { ...loan, status: newStatus };
       
-      // Update specific lifecycle dates based on status transition
       if (newStatus === LoanStatus.APPROVED && date) {
         updatedLoan.approvalDate = date;
+        updatePayload.approvalDate = date;
       } else if (newStatus === LoanStatus.REJECTED && date) {
         updatedLoan.rejectionDate = date;
+        updatePayload.rejectionDate = date;
       } else if (newStatus === LoanStatus.PAYMENT_VERIFYING && date) {
         updatedLoan.paymentAdminDate = date;
+        updatePayload.paymentAdminDate = date;
       } else if (newStatus === LoanStatus.PAID && date) {
         updatedLoan.paidDate = date;
+        updatePayload.paidDate = date;
       }
 
+      updatedLoanData = updatedLoan; // Capture for cash flow logic
       return updatedLoan;
     }));
+
+    sendToApi('UPDATE_LOAN', updatePayload);
+
+    // 2. Automate Cash Flow (Linkage)
+    if (updatedLoanData && date) {
+        const loan = updatedLoanData as Loan;
+        
+        // CASE A: Loan Approved (Pencairan) -> Expense
+        if (newStatus === LoanStatus.APPROVED) {
+            const exists = cashTransactions.some(t => t.relatedLoanId === loan.id && t.category === 'LOAN_DISBURSEMENT');
+            if (!exists) {
+                const newTx: CashTransaction = {
+                    id: `sys-out-${Date.now()}`,
+                    date: date,
+                    description: `Pencairan Pinjaman: ${loan.borrowerName}`,
+                    amount: loan.amount,
+                    type: 'EXPENSE',
+                    category: 'LOAN_DISBURSEMENT',
+                    relatedLoanId: loan.id
+                };
+                setCashTransactions(prev => [newTx, ...prev]);
+                sendToApi('CREATE_TRANSACTION', newTx);
+            }
+        }
+
+        // CASE B: Payment Received by Admin (Pelunasan) -> Income
+        if (newStatus === LoanStatus.PAYMENT_VERIFYING) {
+            const exists = cashTransactions.some(t => t.relatedLoanId === loan.id && t.category === 'LOAN_REPAYMENT');
+            if (!exists) {
+                const totalRepayment = calculateTotal(loan.amount);
+                const newTx: CashTransaction = {
+                    id: `sys-in-${Date.now()}`,
+                    date: date,
+                    description: `Pelunasan Pinjaman: ${loan.borrowerName}`,
+                    amount: totalRepayment,
+                    type: 'INCOME',
+                    category: 'LOAN_REPAYMENT',
+                    relatedLoanId: loan.id
+                };
+                setCashTransactions(prev => [newTx, ...prev]);
+                sendToApi('CREATE_TRANSACTION', newTx);
+            }
+        }
+    }
   };
+
+  // CASH FLOW HANDLERS
+  const handleAddCashTransaction = (data: Omit<CashTransaction, 'id'>) => {
+     const newTransaction: CashTransaction = {
+       id: `cash-${Date.now()}`,
+       ...data,
+       category: 'MANUAL' // Ensure manual input is categorized
+     };
+     setCashTransactions([newTransaction, ...cashTransactions]);
+     sendToApi('CREATE_TRANSACTION', newTransaction);
+  };
+
+  const handleDeleteCashTransaction = (id: string) => {
+     setCashTransactions(cashTransactions.filter(t => t.id !== id));
+     sendToApi('DELETE_TRANSACTION', id);
+  };
+
+  const handleEditCashTransaction = (id: string, updatedData: Partial<CashTransaction>) => {
+    setCashTransactions(prev => prev.map(t => 
+       t.id === id ? { ...t, ...updatedData } : t
+    ));
+    sendToApi('UPDATE_TRANSACTION', { id, ...updatedData });
+  };
+
 
   const pendingCount = loans.filter(l => l.status === LoanStatus.PENDING).length;
   const verifyingCount = loans.filter(l => l.status === LoanStatus.PAYMENT_VERIFYING).length;
 
   if (!user) {
-    return <LoginScreen onLogin={(loggedInUser) => {
-      setUser(loggedInUser);
-      // Set default view based on role
-      if (loggedInUser.role === 'NASABAH') {
-        setCurrentView('nasabah-view');
-      } else {
-        setCurrentView('dashboard');
-      }
-    }} />;
+    return <LoginScreen 
+        onLogin={(loggedInUser) => {
+            setUser(loggedInUser);
+            if (loggedInUser.role === 'NASABAH') {
+                setCurrentView('nasabah-view');
+            } else {
+                setCurrentView('dashboard');
+            }
+        }} 
+        loans={loans} 
+        cashTransactions={cashTransactions}
+    />;
   }
 
   return (
@@ -179,7 +309,13 @@ export default function App() {
       user={user}
       onLogout={() => setUser(null)}
     >
-      {currentView === 'dashboard' && <Dashboard loans={loans} />}
+      {loading && (
+          <div className="absolute top-0 left-0 w-full h-1 bg-blue-100 overflow-hidden z-50">
+              <div className="w-1/3 h-full bg-blue-600 animate-slide"></div>
+          </div>
+      )}
+      
+      {currentView === 'dashboard' && <Dashboard loans={loans} cashTransactions={cashTransactions} />}
       
       {currentView === 'loans' && (
         <LoanList 
@@ -204,6 +340,16 @@ export default function App() {
 
       {currentView === 'nasabah-view' && user.role === 'NASABAH' && (
         <NasabahView loans={loans} userName={user.name} />
+      )}
+
+      {currentView === 'cash-flow' && (
+        <CashFlow 
+          transactions={cashTransactions} 
+          userRole={user.role}
+          onAddTransaction={handleAddCashTransaction}
+          onDeleteTransaction={handleDeleteCashTransaction}
+          onEditTransaction={handleEditCashTransaction}
+        />
       )}
     </MacOSWindow>
   );

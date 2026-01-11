@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, FileCheck, CheckCircle2, PlusCircle, Wallet, LogOut, Info } from 'lucide-react';
+import { LayoutDashboard, Users, FileCheck, CheckCircle2, PlusCircle, Wallet, LogOut, Info, BookOpen } from 'lucide-react';
 import { Role, User } from '../types';
 
 interface SidebarItemProps {
@@ -51,11 +51,11 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
   onLogout
 }) => {
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 sm:p-8">
-      <div className="w-full max-w-6xl h-[85vh] bg-macos-window backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 flex overflow-hidden flex-col md:flex-row animate-in fade-in zoom-in duration-500">
+    <div className="flex items-center justify-center min-h-screen p-4 sm:p-8 overflow-y-auto">
+      <div className="w-full max-w-6xl h-[90vh] md:h-[85vh] bg-macos-window backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 flex overflow-hidden flex-col md:flex-row animate-in fade-in zoom-in duration-500">
         
         {/* Sidebar */}
-        <div className="w-full md:w-64 bg-macos-sidebar backdrop-blur-xl border-r border-gray-200/50 flex flex-col p-4">
+        <div className="w-full md:w-64 bg-macos-sidebar backdrop-blur-xl border-r border-gray-200/50 flex flex-col p-4 flex-shrink-0">
           {/* Traffic Lights */}
           <div className="flex gap-2 mb-8 px-2">
             <div className="w-3 h-3 rounded-full bg-[#FF5F57] border border-[#E0443E]"></div>
@@ -70,7 +70,7 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
           </div>
 
           {/* Navigation */}
-          <div className="space-y-1 flex-1 overflow-y-auto">
+          <div className="space-y-1 flex-1 overflow-y-auto min-h-0">
             {/* Common Menu */}
             {user.role !== 'NASABAH' && (
               <>
@@ -86,6 +86,12 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
                   label="Data Pinjaman" 
                   active={currentView === 'loans'} 
                   onClick={() => setCurrentView('loans')} 
+                />
+                <SidebarItem 
+                  icon={BookOpen} 
+                  label="Laporan Kas" 
+                  active={currentView === 'cash-flow'} 
+                  onClick={() => setCurrentView('cash-flow')} 
                 />
               </>
             )}
@@ -138,7 +144,7 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
           </div>
 
           {/* User Profile / Footer */}
-          <div className="mt-auto pt-4 border-t border-gray-200/50">
+          <div className="mt-auto pt-4 border-t border-gray-200/50 flex-shrink-0">
             <div className="flex items-center gap-3 px-2 mb-3">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm
                 ${user.role === 'ADMIN' ? 'bg-gradient-to-tr from-blue-400 to-purple-500' : 
@@ -163,22 +169,23 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col bg-white/60 overflow-hidden relative">
           {/* Header Bar */}
-          <div className="h-12 border-b border-gray-200/50 flex items-center justify-between px-6 bg-white/40 backdrop-blur-sm sticky top-0 z-10">
-            <span className="text-sm font-medium text-gray-600">
+          <div className="h-12 flex-shrink-0 border-b border-gray-200/50 flex items-center justify-between px-6 bg-white/40 backdrop-blur-sm sticky top-0 z-10">
+            <span className="text-sm font-medium text-gray-600 truncate mr-4">
                {currentView === 'dashboard' && 'Overview Statistik'}
                {currentView === 'loans' && 'Data Seluruh Pinjaman'}
                {currentView === 'request' && 'Input Pinjaman Baru'}
                {currentView === 'rt-validation' && 'Pusat Validasi Ketua RT'}
                {currentView === 'payment' && 'Penerimaan Pembayaran (Admin)'}
                {currentView === 'nasabah-view' && 'Informasi Tagihan Anda'}
+               {currentView === 'cash-flow' && 'Laporan Kas & Keuangan RT'}
             </span>
-            <div className="flex items-center gap-4">
-               <span className="text-xs text-gray-400">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <div className="flex items-center gap-4 flex-shrink-0">
+               <span className="text-xs text-gray-400 hidden sm:inline">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
           </div>
           
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-auto p-6 scroll-smooth">
+          <div className="flex-1 overflow-auto p-6 scroll-smooth pb-20">
             {children}
           </div>
         </div>

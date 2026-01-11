@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loan, LoanStatus, formatCurrency, calculateInterest, calculateTotal, Role } from '../types';
-import { Search, Filter, Trash2, Edit, X, Save, Calendar } from 'lucide-react';
+import { Search, Filter, Trash2, Edit, X, Save, Calendar, Wallet, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface LoanListProps {
   loans: Loan[];
@@ -39,11 +39,66 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, userRole, onDelete, o
     }
   };
 
+  // --- STATS CALCULATIONS (Based on ALL loans, not just filtered, or as needed) ---
+  const totalPrincipal = loans.reduce((acc, curr) => acc + curr.amount, 0);
+  
+  const totalPotentialInterest = loans.reduce((acc, curr) => acc + (curr.amount * 0.20), 0);
+  
+  const totalPaidInterest = loans
+    .filter(l => l.status === LoanStatus.PAID)
+    .reduce((acc, curr) => acc + (curr.amount * 0.20), 0);
+
+  // Outstanding: Active loans (Approved or Payment Verifying) -> Full Amount (Principal + Interest)
+  const totalOutstanding = loans
+    .filter(l => l.status === LoanStatus.APPROVED || l.status === LoanStatus.PAYMENT_VERIFYING)
+    .reduce((acc, curr) => acc + calculateTotal(curr.amount), 0);
+
+
   return (
     <div className="space-y-6">
+      
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+             <div className="flex items-center gap-2 mb-2 text-blue-600">
+                <Wallet size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">Total Pinjaman</span>
+             </div>
+             <div className="text-lg font-bold text-gray-800">{formatCurrency(totalPrincipal)}</div>
+             <div className="text-[10px] text-gray-500">Pokok tersalurkan</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+             <div className="flex items-center gap-2 mb-2 text-purple-600">
+                <TrendingUp size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">Potensi Bunga</span>
+             </div>
+             <div className="text-lg font-bold text-gray-800">{formatCurrency(totalPotentialInterest)}</div>
+             <div className="text-[10px] text-gray-500">Est. Pendapatan (20%)</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+             <div className="flex items-center gap-2 mb-2 text-green-600">
+                <CheckCircle size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">Bunga Masuk</span>
+             </div>
+             <div className="text-lg font-bold text-gray-800">{formatCurrency(totalPaidInterest)}</div>
+             <div className="text-[10px] text-gray-500">Dari pinjaman lunas</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm bg-gradient-to-br from-red-50 to-white">
+             <div className="flex items-center gap-2 mb-2 text-red-600">
+                <AlertCircle size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">Belum Bayar</span>
+             </div>
+             <div className="text-lg font-bold text-red-600">{formatCurrency(totalOutstanding)}</div>
+             <div className="text-[10px] text-red-400">Total tagihan aktif</div>
+          </div>
+      </div>
+
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h2 className="text-xl font-bold text-gray-800">Data Pinjaman</h2>
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+        <h2 className="text-xl font-bold text-gray-800">Daftar Peminjam</h2>
         
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           <div className="relative w-full sm:w-auto">

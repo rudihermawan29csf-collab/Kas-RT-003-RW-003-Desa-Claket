@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { User, Role, INITIAL_LOANS } from '../types';
-import { ArrowRight, UserCircle2, ShieldCheck, Users, ChevronDown, KeyRound, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Role, INITIAL_LOANS, Loan, CashTransaction, LoanStatus } from '../types';
+import { ArrowRight, UserCircle2, ShieldCheck, Users, ChevronDown, KeyRound, CheckCircle2, Bell, AlertCircle, TrendingUp } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: (user: User) => void;
+  loans: Loan[];
+  cashTransactions: CashTransaction[];
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, loans, cashTransactions }) => {
   const [role, setRole] = useState<Role>('ADMIN');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -15,6 +17,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
   // Get unique list of existing borrowers/citizens for the dropdown
   const nasabahList = Array.from(new Set(INITIAL_LOANS.map(l => l.borrowerName)));
+
+  // NOTIFICATION LOGIC FOR RT
+  const pendingCount = loans.filter(l => l.status === LoanStatus.PENDING).length;
+  const verifyingCount = loans.filter(l => l.status === LoanStatus.PAYMENT_VERIFYING).length;
+  const totalTasks = pendingCount + verifyingCount;
+
+  // Check for today's transactions
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayTransactions = cashTransactions.filter(t => t.date === todayStr).length;
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +52,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         setError('Silakan pilih nama Anda dari daftar');
         return;
       }
-      // Direct login for Nasabah (Password check removed as requested)
+      // Direct login for Nasabah
       finalName = name;
     }
 
@@ -71,24 +82,56 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     setRole(newRole);
     setError('');
     setPassword('');
-    setName(''); // Reset name when switching roles
+    setName(''); 
     setIsTyping(false);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center font-sans">
-      {/* Subtle overlay to ensure text readability without hiding the beautiful background */}
-      <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
+      {/* Subtle overlay */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
 
       <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-in fade-in zoom-in duration-700 p-4">
         
-        {/* Profile Picture Circle with gradient border effect */}
-        <div className="mb-8 relative group">
+        {/* Profile Picture Circle */}
+        <div className="mb-6 relative group">
            <div className="absolute inset-0 bg-gradient-to-tr from-pink-500 to-violet-500 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000"></div>
            <div className="relative w-32 h-32 rounded-full bg-white/10 backdrop-blur-md shadow-2xl flex items-center justify-center ring-4 ring-white/20">
               {getAvatar()}
+              
+              {/* NOTIFICATION BADGE FOR RT */}
+              {role === 'RT' && totalTasks > 0 && (
+                 <div className="absolute -top-2 -right-2 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-lg border-2 border-white animate-bounce">
+                    {totalTasks}
+                 </div>
+              )}
            </div>
         </div>
+
+        {/* RT Notification Cards (Only visible when RT is selected) */}
+        {role === 'RT' && (totalTasks > 0 || todayTransactions > 0) && (
+            <div className="mb-6 w-full max-w-xs space-y-2 animate-in slide-in-from-bottom-2">
+                {totalTasks > 0 && (
+                    <div className="bg-orange-500/90 backdrop-blur-md text-white px-4 py-2 rounded-xl flex items-center gap-3 shadow-lg border border-white/20">
+                        <AlertCircle size={18} className="flex-shrink-0" />
+                        <div className="text-xs text-left">
+                            <span className="font-bold block">Perlu Tindakan:</span>
+                            {pendingCount > 0 && <span>• {pendingCount} Menunggu ACC<br/></span>}
+                            {verifyingCount > 0 && <span>• {verifyingCount} Verifikasi Lunas</span>}
+                        </div>
+                    </div>
+                )}
+                {todayTransactions > 0 && (
+                    <div className="bg-green-600/90 backdrop-blur-md text-white px-4 py-2 rounded-xl flex items-center gap-3 shadow-lg border border-white/20">
+                        <TrendingUp size={18} className="flex-shrink-0" />
+                        <div className="text-xs text-left">
+                            <span className="font-bold block">Aktivitas Keuangan:</span>
+                            <span>Ada {todayTransactions} transaksi baru hari ini.</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
 
         {/* Text Area */}
         <div className="text-center mb-8 flex flex-col items-center gap-3">
