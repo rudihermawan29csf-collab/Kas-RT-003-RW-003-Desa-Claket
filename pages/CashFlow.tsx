@@ -85,16 +85,45 @@ export const CashFlow: React.FC<CashFlowProps> = ({ transactions, userRole, onAd
     }
   };
 
-  // Edit Handlers
+  // HANDLE EDIT SUBMIT
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingItem) {
-        onEditTransaction(editingItem.id, {
-            description: editingItem.description,
-            amount: editingItem.amount,
-            date: editingItem.date
-        });
+        // SPECIAL CASE: Handling "Modal Awal" (Initial Balance)
+        // If it was a 'new' placeholder id, we ADD, otherwise we EDIT
+        if (editingItem.id === 'new-initial-balance') {
+             onAddTransaction({
+                date: editingItem.date,
+                description: 'Saldo Awal Kas RT', // Force description
+                amount: editingItem.amount,
+                type: 'INCOME',
+                category: 'INITIAL_BALANCE'
+             });
+        } else {
+             // Normal Edit
+             onEditTransaction(editingItem.id, {
+                description: editingItem.description,
+                amount: editingItem.amount,
+                date: editingItem.date
+            });
+        }
         setEditingItem(null);
+    }
+  };
+
+  const handleEditInitialBalance = () => {
+    if (initialBalanceTransaction) {
+        setEditingItem(initialBalanceTransaction);
+    } else {
+        // Create a placeholder object for editing (which will be Added on save)
+        setEditingItem({
+            id: 'new-initial-balance',
+            date: new Date().toISOString().split('T')[0],
+            description: 'Saldo Awal Kas RT',
+            amount: 0,
+            type: 'INCOME',
+            category: 'INITIAL_BALANCE'
+        });
     }
   };
 
@@ -183,14 +212,14 @@ export const CashFlow: React.FC<CashFlowProps> = ({ transactions, userRole, onAd
                 <div className="text-xs text-gray-500 mt-1">Saldo Awal Kas</div>
             </div>
             
-            {/* Edit Button for Admin - ALWAYS VISIBLE & DISTINCT COLOR */}
-            {userRole === 'ADMIN' && initialBalanceTransaction && (
+            {/* Edit Button for Admin - ALWAYS VISIBLE if ADMIN */}
+            {userRole === 'ADMIN' && (
                <button 
-                 onClick={() => setEditingItem(initialBalanceTransaction)}
+                 onClick={handleEditInitialBalance}
                  className="absolute top-3 right-3 px-3 py-1.5 bg-orange-500 text-white hover:bg-orange-600 rounded-full shadow-md transition-all flex items-center gap-1 text-[10px] font-bold z-10"
-                 title="Edit Saldo Awal"
+                 title="Atur Modal Awal"
                >
-                  <Edit size={12} /> EDIT
+                  <Edit size={12} /> {initialBalanceTransaction ? 'EDIT' : 'ATUR'}
                </button>
             )}
         </div>
@@ -570,7 +599,7 @@ export const CashFlow: React.FC<CashFlowProps> = ({ transactions, userRole, onAd
               </button>
               <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
                 <Edit size={18} className="text-blue-600" />
-                Edit Transaksi
+                {editingItem.category === 'INITIAL_BALANCE' ? 'Atur Modal Awal' : 'Edit Transaksi'}
               </h3>
               
               <form onSubmit={handleEditSubmit} className="space-y-4">
@@ -578,6 +607,11 @@ export const CashFlow: React.FC<CashFlowProps> = ({ transactions, userRole, onAd
                  {editingItem.category !== 'MANUAL' && editingItem.category !== 'INITIAL_BALANCE' && (
                      <div className="p-3 bg-yellow-50 text-yellow-700 text-xs rounded-lg border border-yellow-200">
                          Perhatian: Ini adalah transaksi sistem otomatis. Mengubah nilai ini mungkin menyebabkan ketidaksesuaian dengan Data Pinjaman.
+                     </div>
+                 )}
+                 {editingItem.category === 'INITIAL_BALANCE' && (
+                     <div className="p-3 bg-purple-50 text-purple-700 text-xs rounded-lg border border-purple-200">
+                         Mengatur Modal Awal Kas.
                      </div>
                  )}
 
@@ -588,6 +622,7 @@ export const CashFlow: React.FC<CashFlowProps> = ({ transactions, userRole, onAd
                       value={editingItem.description}
                       onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      disabled={editingItem.category === 'INITIAL_BALANCE'} // Lock description for initial balance
                     />
                  </div>
                  <div>
@@ -621,7 +656,7 @@ export const CashFlow: React.FC<CashFlowProps> = ({ transactions, userRole, onAd
                       type="submit"
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
                     >
-                      <Save size={16} /> Simpan Perubahan
+                      <Save size={16} /> Simpan
                     </button>
                  </div>
               </form>

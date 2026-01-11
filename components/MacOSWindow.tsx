@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, FileCheck, CheckCircle2, PlusCircle, Wallet, LogOut, Info, BookOpen, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, FileCheck, CheckCircle2, PlusCircle, Wallet, LogOut, Info, BookOpen, Menu, History } from 'lucide-react';
 import { Role, User } from '../types';
 
 interface NavItemProps {
@@ -136,10 +136,16 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
             {user.role === 'NASABAH' && (
               <>
                 <NavItem 
-                  icon={Info} 
-                  label="Info Saya" 
-                  active={currentView === 'nasabah-view'} 
-                  onClick={() => setCurrentView('nasabah-view')} 
+                  icon={LayoutDashboard} 
+                  label="Dashboard" 
+                  active={currentView === 'nasabah-dashboard'} 
+                  onClick={() => setCurrentView('nasabah-dashboard')} 
+                />
+                <NavItem 
+                  icon={History} 
+                  label="Riwayat" 
+                  active={currentView === 'nasabah-history'} 
+                  onClick={() => setCurrentView('nasabah-history')} 
                 />
               </>
             )}
@@ -171,7 +177,8 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
                   {currentView === 'request' && 'Formulir Pengajuan'}
                   {currentView === 'rt-validation' && 'Tugas Validasi'}
                   {currentView === 'payment' && 'Administrasi Keuangan'}
-                  {currentView === 'nasabah-view' && 'Status Pinjaman Anda'}
+                  {currentView === 'nasabah-dashboard' && 'Dashboard Warga'}
+                  {currentView === 'nasabah-history' && 'Riwayat Pinjaman'}
                   {currentView === 'cash-flow' && 'Laporan Kas'}
                </h2>
                <span className="text-xs font-medium text-gray-500 uppercase tracking-widest hidden sm:block">

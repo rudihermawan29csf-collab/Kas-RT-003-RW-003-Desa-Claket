@@ -262,8 +262,8 @@ export default function App() {
   const handleAddCashTransaction = (data: Omit<CashTransaction, 'id'>) => {
      const newTransaction: CashTransaction = {
        id: `cash-${Date.now()}`,
-       ...data,
-       category: 'MANUAL' // Ensure manual input is categorized
+       category: 'MANUAL', // Default, but can be overridden by ...data
+       ...data 
      };
      setCashTransactions([newTransaction, ...cashTransactions]);
      sendToApi('CREATE_TRANSACTION', newTransaction);
@@ -290,7 +290,7 @@ export default function App() {
         onLogin={(loggedInUser) => {
             setUser(loggedInUser);
             if (loggedInUser.role === 'NASABAH') {
-                setCurrentView('nasabah-view');
+                setCurrentView('nasabah-dashboard');
             } else {
                 setCurrentView('dashboard');
             }
@@ -338,8 +338,13 @@ export default function App() {
         <AdminPayment loans={loans} onUpdateStatus={handleUpdateStatus} />
       )}
 
-      {currentView === 'nasabah-view' && user.role === 'NASABAH' && (
-        <NasabahView loans={loans} userName={user.name} />
+      {/* NASABAH VIEWS */}
+      {(currentView === 'nasabah-dashboard' || currentView === 'nasabah-history') && user.role === 'NASABAH' && (
+        <NasabahView 
+          loans={loans} 
+          userName={user.name} 
+          viewMode={currentView === 'nasabah-dashboard' ? 'dashboard' : 'history'}
+        />
       )}
 
       {currentView === 'cash-flow' && (
