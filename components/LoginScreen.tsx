@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Role, INITIAL_LOANS, Loan, CashTransaction, LoanStatus } from '../types';
+import { User, Role, Loan, CashTransaction, LoanStatus } from '../types';
 import { ArrowRight, UserCircle2, ShieldCheck, Users, ChevronDown, KeyRound, CheckCircle2, Bell, AlertCircle, TrendingUp } from 'lucide-react';
 
 interface LoginScreenProps {
@@ -15,8 +15,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, loans, cashTr
   const [error, setError] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
-  // Get unique list of existing borrowers/citizens for the dropdown
-  const nasabahList = Array.from(new Set(INITIAL_LOANS.map(l => l.borrowerName)));
+  // UPDATED: Get unique list of existing borrowers/citizens from the passed 'loans' prop (Database Data)
+  // instead of the static INITIAL_LOANS. Added trim() and sort() for better UX.
+  const nasabahList = Array.from(new Set(
+    loans
+      .map(l => l.borrowerName ? l.borrowerName.trim() : '')
+      .filter(n => n.length > 0)
+  )).sort();
 
   // NOTIFICATION LOGIC FOR RT
   const pendingCount = loans.filter(l => l.status === LoanStatus.PENDING).length;
