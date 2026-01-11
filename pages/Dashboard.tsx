@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Loan, LoanStatus, CashTransaction, formatCurrency } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, Users, AlertCircle, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, X, Link2, FileText, Coins } from 'lucide-react';
+import { TrendingUp, Users, AlertCircle, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, X, Link2, FileText, Coins, PieChart } from 'lucide-react';
 
 interface DashboardProps {
   loans: Loan[];
@@ -12,17 +12,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
   const [detailView, setDetailView] = useState<'INCOME' | 'EXPENSE' | null>(null);
 
   // --- CASH FLOW CALCULATIONS ---
+
+  // 1. Modal Awal
   const initialBalance = cashTransactions
     .filter(t => t.category === 'INITIAL_BALANCE')
     .reduce((acc, curr) => acc + curr.amount, 0);
 
-  const incomeTransactions = cashTransactions.filter(t => t.type === 'INCOME' && t.category !== 'INITIAL_BALANCE');
-  const totalIncome = incomeTransactions.reduce((acc, curr) => acc + curr.amount, 0);
+  // 2. Pemasukan Manual (Laporan Kas selain pinjaman)
+  const manualIncomeTransactions = cashTransactions.filter(t => t.type === 'INCOME' && t.category === 'MANUAL');
+  const manualIncomeTotal = manualIncomeTransactions.reduce((acc, curr) => acc + curr.amount, 0);
 
+  // 3. Analisa Pelunasan Pinjaman (Sistem)
+  const loanRepaymentTransactions = cashTransactions.filter(t => t.category === 'LOAN_REPAYMENT');
+  const totalLoanRepaymentRaw = loanRepaymentTransactions.reduce((acc, t) => acc + t.amount, 0);
+  
+  // Hitung Porsi Bunga & Pokok dari Transaksi Pelunasan
+  // Asumsi: Nilai di transaksi adalah Total (120%). Pokok = Total / 1.2. Bunga = Sisanya.
+  const totalInterestReceived = loanRepaymentTransactions.reduce((acc, t) => {
+      const principalPart = t.amount / 1.2;
+      return acc + (t.amount - principalPart);
+  }, 0);
+
+  const totalPrincipalReturned = totalLoanRepaymentRaw - totalInterestReceived;
+
+  // 4. Pengeluaran
   const expenseTransactions = cashTransactions.filter(t => t.type === 'EXPENSE');
   const totalExpense = expenseTransactions.reduce((acc, curr) => acc + curr.amount, 0);
 
-  const finalBalance = initialBalance + totalIncome - totalExpense;
+
+  // --- FORMULA BARU SESUAI REQUEST ---
+  // Total Pemasukan Display = Modal Awal + Bunga + Pemasukan Manual
+  const totalPemasukanDisplay = initialBalance + totalInterestReceived + manualIncomeTotal;
+
+  // Saldo Akhir Real (Uang Fisik) = Semua Uang Masuk (termasuk pokok kembali) - Semua Keluar
+  const totalCashInReal = initialBalance + manualIncomeTotal + totalLoanRepaymentRaw;
+  const finalBalance = totalCashInReal - totalExpense;
 
 
   // --- LOAN SPECIFIC STATS (For Charts) ---
@@ -45,17 +69,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
 
-  // --- MODAL CALCS ---
-  const detailTransactions = detailView === 'INCOME' ? incomeTransactions : expenseTransactions;
+  // --- MODAL DATA PREPARATION ---
+  // Filter list transaksi untuk tabel detail
+  const detailTransactions = detailView === 'INCOME' 
+     ? cashTransactions.filter(t => t.type === 'INCOME' || t.category === 'INITIAL_BALANCE')
+     : expenseTransactions;
   
-  const loanRelatedTotal = detailTransactions
-    .filter(t => t.category.includes('LOAN'))
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const cashRelatedTotal = detailTransactions
-    .filter(t => !t.category.includes('LOAN'))
-    .reduce((acc, t) => acc + t.amount, 0);
-
   // Custom Tooltip for Chart
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -88,7 +107,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
           </div>
         </div>
 
-        {/* Card 2: Total Pemasukan */}
+        {/* Card 2: Total Pemasukan (FORMULA KHUSUS) */}
         <div 
             onClick={() => setDetailView('INCOME')}
             className="bg-white/80 p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-32 cursor-pointer hover:bg-white hover:shadow-md transition-all group"
@@ -97,13 +116,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
             <div className="p-2 bg-green-100 rounded-lg text-green-600 group-hover:scale-110 transition-transform">
               <ArrowUpCircle size={20} />
             </div>
-            <span className="text-[10px] font-medium bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Klik untuk Rincian</span>
+            <span className="text-[10px] font-medium bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Rincian</span>
           </div>
           <div>
-            <div className="text-xl font-bold text-green-600">{formatCurrency(totalIncome)}</div>
-            <div className="text-xs text-gray-500">Total Pemasukan</div>
-            <div className="text-[10px] text-green-600 mt-1">
-               (Termasuk Bunga Pinjaman)
+            <div className="text-xl font-bold text-green-600">{formatCurrency(totalPemasukanDisplay)}</div>
+            <div className="text-xs text-gray-500 font-bold">Total Pemasukan</div>
+            <div className="text-[9px] text-green-600 mt-1 font-medium">
+               (Modal + Bunga + Kas Lain)
             </div>
           </div>
         </div>
@@ -117,7 +136,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
             <div className="p-2 bg-red-100 rounded-lg text-red-600 group-hover:scale-110 transition-transform">
               <ArrowDownCircle size={20} />
             </div>
-             <span className="text-[10px] font-medium bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Klik untuk Rincian</span>
+             <span className="text-[10px] font-medium bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Rincian</span>
           </div>
           <div>
             <div className="text-xl font-bold text-red-600">{formatCurrency(totalExpense)}</div>
@@ -138,7 +157,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
           </div>
           <div>
             <div className="text-2xl font-bold tracking-tight">{formatCurrency(finalBalance)}</div>
-            <div className="text-xs text-blue-100">Saldo Akhir Saat Ini</div>
+            <div className="text-xs text-blue-100">Saldo Akhir (Fisik)</div>
           </div>
         </div>
       </div>
@@ -199,8 +218,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                         {detailView === 'INCOME' ? 
-                            <><ArrowUpCircle className="text-green-600" /> Rincian Pemasukan</> : 
-                            <><ArrowDownCircle className="text-red-600" /> Rincian Pengeluaran</>
+                            <><ArrowUpCircle className="text-green-600" /> Analisa Pemasukan</> : 
+                            <><ArrowDownCircle className="text-red-600" /> Analisa Pengeluaran</>
                         }
                     </h3>
                     <button onClick={() => setDetailView(null)} className="text-gray-400 hover:text-gray-600">
@@ -208,11 +227,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                     </button>
                 </div>
                 
+                {/* Scrollable Table */}
                 <div className="overflow-y-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Sumber / Kategori</th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Kategori</th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tanggal</th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Keterangan</th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Jumlah</th>
@@ -224,7 +244,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                                 const isInitial = t.category === 'INITIAL_BALANCE';
                                 const isIncome = t.type === 'INCOME';
 
-                                // UNIFIED ROW STYLING Logic
+                                // Row Styling
                                 let rowClass = 'bg-white';
                                 let textClass = 'text-gray-800';
                                 let amountClass = isIncome ? 'text-green-700' : 'text-red-700';
@@ -232,21 +252,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                                 let label = 'Transaksi';
 
                                 if (isInitial) {
-                                    rowClass = 'bg-purple-50 hover:bg-purple-100';
-                                    textClass = 'text-purple-900';
+                                    rowClass = 'bg-purple-50';
                                     amountClass = 'text-purple-700';
                                     icon = <Wallet size={12}/>;
                                     label = 'Modal Awal';
                                 } else if (isIncome) {
                                     if (isLoan) {
-                                        rowClass = 'bg-blue-50 hover:bg-blue-100';
-                                        textClass = 'text-blue-900';
+                                        rowClass = 'bg-blue-50';
                                         amountClass = 'text-blue-700';
                                         icon = <Link2 size={12}/>;
-                                        label = 'Sistem Pinjaman';
+                                        label = 'Pelunasan';
                                     } else {
-                                        rowClass = 'bg-green-50 hover:bg-green-100';
-                                        textClass = 'text-green-900';
+                                        rowClass = 'bg-green-50';
                                         amountClass = 'text-green-700';
                                         icon = <Coins size={12}/>;
                                         label = 'Kas Manual';
@@ -254,17 +271,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                                 } else {
                                     // Expense
                                     if (isLoan) {
-                                        rowClass = 'bg-orange-50 hover:bg-orange-100';
-                                        textClass = 'text-orange-900';
+                                        rowClass = 'bg-orange-50';
                                         amountClass = 'text-orange-700';
                                         icon = <Link2 size={12}/>;
-                                        label = 'Sistem Pinjaman';
+                                        label = 'Pencairan';
                                     } else {
-                                        rowClass = 'bg-red-50 hover:bg-red-100';
-                                        textClass = 'text-red-900';
+                                        rowClass = 'bg-red-50';
                                         amountClass = 'text-red-700';
                                         icon = <FileText size={12}/>;
-                                        label = 'Kas Operasional';
+                                        label = 'Kas Manual';
                                     }
                                 }
                                 
@@ -283,39 +298,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ loans, cashTransactions })
                                     </tr>
                                 );
                             })}
-                            {detailTransactions.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500 text-sm">Tidak ada data rincian.</td>
-                                </tr>
-                            )}
                         </tbody>
                     </table>
                 </div>
 
                 {/* Footer with Breakdown */}
-                <div className="pt-4 border-t border-gray-200 mt-2 bg-gray-50/50 -mx-6 px-6 -mb-6 pb-6 rounded-b-2xl">
-                    <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                        <div className="flex justify-between items-center px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
-                             <span className="text-blue-700 flex items-center gap-2 font-medium">
-                                <Link2 size={14}/> Dari Sistem Pinjaman
-                             </span>
-                             <span className="font-bold text-blue-800">{formatCurrency(loanRelatedTotal)}</span>
-                        </div>
-                        <div className="flex justify-between items-center px-4 py-2 bg-gray-100 rounded-lg border border-gray-200">
-                             <span className="text-gray-700 flex items-center gap-2 font-medium">
-                                <FileText size={14}/> Dari Kas Manual
-                             </span>
-                             <span className="font-bold text-gray-800">{formatCurrency(cashRelatedTotal)}</span>
-                        </div>
-                    </div>
+                {detailView === 'INCOME' && (
+                  <div className="pt-4 border-t border-gray-200 mt-2 bg-gray-50/50 -mx-6 px-6 -mb-6 pb-6 rounded-b-2xl">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+                          <div className="p-2 bg-purple-100 rounded-lg border border-purple-200">
+                               <div className="text-purple-700 font-bold mb-1">Modal Awal</div>
+                               <div className="font-mono">{formatCurrency(initialBalance)}</div>
+                          </div>
+                          <div className="p-2 bg-green-100 rounded-lg border border-green-200">
+                               <div className="text-green-700 font-bold mb-1">Kas Manual</div>
+                               <div className="font-mono">{formatCurrency(manualIncomeTotal)}</div>
+                          </div>
+                          <div className="p-2 bg-blue-100 rounded-lg border border-blue-200">
+                               <div className="text-blue-700 font-bold mb-1">Bunga (20%)</div>
+                               <div className="font-mono">{formatCurrency(totalInterestReceived)}</div>
+                          </div>
+                          <div className="p-2 bg-gray-200 rounded-lg border border-gray-300 opacity-75">
+                               <div className="text-gray-600 font-bold mb-1">Pokok Kembali</div>
+                               <div className="font-mono">{formatCurrency(totalPrincipalReturned)}</div>
+                          </div>
+                      </div>
 
-                    <div className="flex justify-between items-center px-4 pt-2 border-t border-gray-200">
-                        <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">Total Keseluruhan</span>
-                        <span className={`text-2xl font-bold ${detailView === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(detailView === 'INCOME' ? totalIncome : totalExpense)}
-                        </span>
-                    </div>
-                </div>
+                      <div className="flex justify-between items-center px-4 pt-2 border-t border-gray-200 bg-green-50 rounded-lg p-2 mt-2 border border-green-200">
+                          <span className="text-sm font-bold text-green-800 uppercase tracking-wide">Total Pemasukan (Rumus)</span>
+                          <span className="text-2xl font-bold text-green-700">
+                              {formatCurrency(totalPemasukanDisplay)}
+                          </span>
+                      </div>
+                      <div className="text-center mt-1">
+                        <span className="text-[10px] text-gray-400">Total Pemasukan = Modal Awal + Kas Manual + Bunga (Tidak termasuk Pokok Kembali)</span>
+                      </div>
+                  </div>
+                )}
+
+                {detailView === 'EXPENSE' && (
+                   <div className="pt-4 border-t border-gray-200 mt-2 bg-gray-50/50 -mx-6 px-6 -mb-6 pb-6 rounded-b-2xl">
+                      <div className="flex justify-between items-center px-4 pt-2">
+                          <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">Total Pengeluaran</span>
+                          <span className="text-2xl font-bold text-red-600">
+                              {formatCurrency(totalExpense)}
+                          </span>
+                      </div>
+                   </div>
+                )}
              </div>
           </div>
       )}
