@@ -177,7 +177,7 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
                   {currentView === 'request' && 'Formulir Pengajuan'}
                   {currentView === 'rt-validation' && 'Tugas Validasi'}
                   {currentView === 'payment' && 'Administrasi Keuangan'}
-                  {currentView === 'nasabah-dashboard' && 'Dashboard Warga'}
+                  {currentView === 'nasabah-dashboard' && 'Transparansi Kas RT'}
                   {currentView === 'nasabah-history' && 'Riwayat Pinjaman'}
                   {currentView === 'cash-flow' && 'Laporan Kas'}
                </h2>

@@ -339,11 +339,18 @@ export default function App() {
       )}
 
       {/* NASABAH VIEWS */}
-      {(currentView === 'nasabah-dashboard' || currentView === 'nasabah-history') && user.role === 'NASABAH' && (
+      
+      {/* 1. Dashboard Tab: Now uses the Global Dashboard (Same as Admin) */}
+      {currentView === 'nasabah-dashboard' && user.role === 'NASABAH' && (
+         <Dashboard loans={loans} cashTransactions={cashTransactions} />
+      )}
+
+      {/* 2. History Tab: Uses Personal Loan History */}
+      {currentView === 'nasabah-history' && user.role === 'NASABAH' && (
         <NasabahView 
           loans={loans} 
           userName={user.name} 
-          viewMode={currentView === 'nasabah-dashboard' ? 'dashboard' : 'history'}
+          viewMode='history'
         />
       )}
 
