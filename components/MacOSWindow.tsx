@@ -1,8 +1,8 @@
 import React from 'react';
-import { LayoutDashboard, Users, FileCheck, CheckCircle2, PlusCircle, Wallet, LogOut, Info, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Users, FileCheck, CheckCircle2, PlusCircle, Wallet, LogOut, Info, BookOpen, Menu } from 'lucide-react';
 import { Role, User } from '../types';
 
-interface SidebarItemProps {
+interface NavItemProps {
   icon: React.ElementType;
   label: string;
   active: boolean;
@@ -10,21 +10,19 @@ interface SidebarItemProps {
   count?: number;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, active, onClick, count }) => (
+const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, active, onClick, count }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+    className={`relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex-shrink-0 ${
       active 
-        ? 'bg-macos-active text-white shadow-md' 
-        : 'text-gray-600 hover:bg-black/5'
+        ? 'bg-gray-900 text-white shadow-lg shadow-gray-200 scale-105' 
+        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
     }`}
   >
-    <div className="flex items-center gap-3">
-      <Icon size={18} />
-      <span>{label}</span>
-    </div>
+    <Icon size={16} strokeWidth={active ? 2.5 : 2} />
+    <span className="hidden sm:inline">{label}</span>
     {count !== undefined && count > 0 && (
-      <span className={`text-xs px-2 py-0.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+      <span className={`absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ring-2 ring-white ${active ? 'bg-red-500 text-white' : 'bg-red-500 text-white'}`}>
         {count}
       </span>
     )}
@@ -51,43 +49,48 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
   onLogout
 }) => {
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 sm:p-8 overflow-y-auto">
-      <div className="w-full max-w-6xl h-[90vh] md:h-[85vh] bg-macos-window backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 flex overflow-hidden flex-col md:flex-row animate-in fade-in zoom-in duration-500">
+    <div className="flex items-center justify-center min-h-screen p-4 sm:p-6 overflow-hidden">
+      {/* Main Container */}
+      <div className="w-full max-w-7xl h-[92vh] bg-white/95 backdrop-blur-2xl rounded-[2rem] shadow-2xl border border-white/40 flex flex-col overflow-hidden relative ring-1 ring-gray-900/5">
         
-        {/* Sidebar */}
-        <div className="w-full md:w-64 bg-macos-sidebar backdrop-blur-xl border-r border-gray-200/50 flex flex-col p-4 flex-shrink-0">
-          {/* Traffic Lights */}
-          <div className="flex gap-2 mb-8 px-2">
-            <div className="w-3 h-3 rounded-full bg-[#FF5F57] border border-[#E0443E]"></div>
-            <div className="w-3 h-3 rounded-full bg-[#FEBC2E] border border-[#D89E24]"></div>
-            <div className="w-3 h-3 rounded-full bg-[#28C840] border border-[#1AAB29]"></div>
+        {/* --- TOP NAVBAR (MINIMALIST) --- */}
+        <header className="h-20 px-6 flex items-center justify-between border-b border-gray-100 bg-white/50 backdrop-blur-md sticky top-0 z-50">
+          
+          {/* LEFT: Branding */}
+          <div className="flex items-center gap-4">
+             {/* Decorative Traffic Lights (Smaller & Minimal) */}
+             <div className="flex gap-1.5 opacity-60 group hover:opacity-100 transition-opacity">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57] border border-[#E0443E]/50"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E] border border-[#D89E24]/50"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-[#28C840] border border-[#1AAB29]/50"></div>
+             </div>
+             
+             <div className="h-8 w-[1px] bg-gray-200 mx-1 hidden sm:block"></div>
+
+             <div className="flex flex-col">
+                <h1 className="text-sm font-bold text-gray-800 tracking-tight leading-none">Desa Claket</h1>
+                <span className="text-[10px] font-semibold text-gray-400 tracking-widest uppercase mt-0.5">RT 003 / RW 003</span>
+             </div>
           </div>
 
-          {/* App Title in Sidebar */}
-          <div className="mb-6 px-2">
-            <h1 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">RT 003 / RW 003</h1>
-            <h2 className="text-lg font-bold text-gray-800 leading-tight">Desa Claket</h2>
-          </div>
-
-          {/* Navigation */}
-          <div className="space-y-1 flex-1 overflow-y-auto min-h-0">
-            {/* Common Menu */}
-            {user.role !== 'NASABAH' && (
+          {/* CENTER: Navigation Items */}
+          <nav className="flex-1 flex items-center justify-center gap-1 px-4 overflow-x-auto no-scrollbar mask-gradient">
+             {/* Common Menu */}
+             {user.role !== 'NASABAH' && (
               <>
-                <div className="text-xs font-semibold text-gray-400 px-3 py-2 mt-2">MENU UTAMA</div>
-                <SidebarItem 
+                <NavItem 
                   icon={LayoutDashboard} 
                   label="Dashboard" 
                   active={currentView === 'dashboard'} 
                   onClick={() => setCurrentView('dashboard')} 
                 />
-                <SidebarItem 
+                <NavItem 
                   icon={Wallet} 
                   label="Data Pinjaman" 
                   active={currentView === 'loans'} 
                   onClick={() => setCurrentView('loans')} 
                 />
-                <SidebarItem 
+                <NavItem 
                   icon={BookOpen} 
                   label="Laporan Kas" 
                   active={currentView === 'cash-flow'} 
@@ -99,16 +102,16 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
             {/* ADMIN Specific */}
             {user.role === 'ADMIN' && (
               <>
-                <SidebarItem 
+                <div className="w-[1px] h-6 bg-gray-200 mx-1"></div>
+                <NavItem 
                   icon={PlusCircle} 
-                  label="Input Pinjaman" 
+                  label="Input Baru" 
                   active={currentView === 'request'} 
                   onClick={() => setCurrentView('request')} 
                 />
-                <div className="text-xs font-semibold text-gray-400 px-3 py-2 mt-4">ADMINISTRASI</div>
-                <SidebarItem 
+                <NavItem 
                   icon={CheckCircle2} 
-                  label="Terima Pembayaran" 
+                  label="Pembayaran" 
                   active={currentView === 'payment'} 
                   onClick={() => setCurrentView('payment')} 
                 />
@@ -118,10 +121,10 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
             {/* RT Specific */}
             {user.role === 'RT' && (
               <>
-                <div className="text-xs font-semibold text-gray-400 px-3 py-2 mt-4">VALIDASI</div>
-                <SidebarItem 
+                 <div className="w-[1px] h-6 bg-gray-200 mx-1"></div>
+                 <NavItem 
                   icon={FileCheck} 
-                  label="Validasi (RT)" 
+                  label="Pusat Validasi" 
                   active={currentView === 'rt-validation'} 
                   onClick={() => setCurrentView('rt-validation')}
                   count={pendingCount + verifyingCount}
@@ -132,63 +135,56 @@ export const MacOSWindow: React.FC<MacOSWindowProps> = ({
             {/* NASABAH Specific */}
             {user.role === 'NASABAH' && (
               <>
-                <div className="text-xs font-semibold text-gray-400 px-3 py-2 mt-2">PRIBADI</div>
-                <SidebarItem 
+                <NavItem 
                   icon={Info} 
-                  label="Info Pinjaman Saya" 
+                  label="Info Saya" 
                   active={currentView === 'nasabah-view'} 
                   onClick={() => setCurrentView('nasabah-view')} 
                 />
               </>
             )}
-          </div>
+          </nav>
 
-          {/* User Profile / Footer */}
-          <div className="mt-auto pt-4 border-t border-gray-200/50 flex-shrink-0">
-            <div className="flex items-center gap-3 px-2 mb-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm
-                ${user.role === 'ADMIN' ? 'bg-gradient-to-tr from-blue-400 to-purple-500' : 
-                  user.role === 'RT' ? 'bg-gradient-to-tr from-orange-400 to-red-500' : 'bg-gradient-to-tr from-green-400 to-teal-500'}`}>
-                {user.role === 'ADMIN' ? 'AD' : user.role === 'RT' ? 'RT' : 'NB'}
-              </div>
-              <div className="overflow-hidden">
-                <div className="text-sm font-medium text-gray-700 truncate">{user.name}</div>
-                <div className="text-xs text-gray-500">{user.role}</div>
-              </div>
-            </div>
-            <button 
-              onClick={onLogout}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <LogOut size={14} />
-              Keluar
-            </button>
+          {/* RIGHT: User Profile */}
+          <div className="flex items-center gap-3 pl-4 border-l border-gray-100">
+             <div className="text-right hidden md:block">
+                <div className="text-xs font-bold text-gray-700">{user.name}</div>
+                <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{user.role}</div>
+             </div>
+             <button 
+                onClick={onLogout}
+                className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+                title="Keluar"
+             >
+                <LogOut size={16} />
+             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col bg-white/60 overflow-hidden relative">
-          {/* Header Bar */}
-          <div className="h-12 flex-shrink-0 border-b border-gray-200/50 flex items-center justify-between px-6 bg-white/40 backdrop-blur-sm sticky top-0 z-10">
-            <span className="text-sm font-medium text-gray-600 truncate mr-4">
-               {currentView === 'dashboard' && 'Overview Statistik'}
-               {currentView === 'loans' && 'Data Seluruh Pinjaman'}
-               {currentView === 'request' && 'Input Pinjaman Baru'}
-               {currentView === 'rt-validation' && 'Pusat Validasi Ketua RT'}
-               {currentView === 'payment' && 'Penerimaan Pembayaran (Admin)'}
-               {currentView === 'nasabah-view' && 'Informasi Tagihan Anda'}
-               {currentView === 'cash-flow' && 'Laporan Kas & Keuangan RT'}
-            </span>
-            <div className="flex items-center gap-4 flex-shrink-0">
-               <span className="text-xs text-gray-400 hidden sm:inline">{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            </div>
-          </div>
-          
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-auto p-6 scroll-smooth pb-20">
-            {children}
-          </div>
-        </div>
+        {/* --- MAIN CONTENT --- */}
+        <main className="flex-1 overflow-auto bg-[#F9FAFB] relative p-6 sm:p-8">
+           {/* Date Header inside content */}
+           <div className="flex justify-between items-end mb-6 opacity-60">
+               <h2 className="text-2xl font-bold text-gray-800 tracking-tight">
+                  {currentView === 'dashboard' && 'Ringkasan Eksekutif'}
+                  {currentView === 'loans' && 'Data Peminjam'}
+                  {currentView === 'request' && 'Formulir Pengajuan'}
+                  {currentView === 'rt-validation' && 'Tugas Validasi'}
+                  {currentView === 'payment' && 'Administrasi Keuangan'}
+                  {currentView === 'nasabah-view' && 'Status Pinjaman Anda'}
+                  {currentView === 'cash-flow' && 'Laporan Kas'}
+               </h2>
+               <span className="text-xs font-medium text-gray-500 uppercase tracking-widest hidden sm:block">
+                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+               </span>
+           </div>
+
+           {/* Content Children */}
+           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {children}
+           </div>
+        </main>
+
       </div>
     </div>
   );
